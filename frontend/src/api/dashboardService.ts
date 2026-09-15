@@ -111,6 +111,7 @@ export interface OrganizationEvidence {
   totalWorkflowFailures: number;
   totalCommits: number;
   activePrCount: number;
+  isSyncing: boolean;
 }
 
 export const useOrganizationEvidence = (owner: string, timeframe: string = '1_day') => {
@@ -123,5 +124,10 @@ export const useOrganizationEvidence = (owner: string, timeframe: string = '1_da
       return data;
     },
     enabled: !!owner,
+    refetchInterval: (query) => {
+      if (!query.state.data) return false;
+      // Poll every 3 seconds while backend explicitly reports isSyncing
+      return query.state.data.isSyncing ? 3000 : false;
+    }
   });
 };

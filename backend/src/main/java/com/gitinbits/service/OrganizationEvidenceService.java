@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.gitinbits.persistence.repository.SyncMetadataRepository;
 
 @Service
 public class OrganizationEvidenceService {
@@ -20,12 +21,16 @@ public class OrganizationEvidenceService {
     private final IssueRepository issueRepository;
     private final WorkflowRunRepository workflowRunRepository;
     private final com.gitinbits.persistence.repository.CommitRepository commitRepository;
+    private final SyncMetadataRepository syncMetadataRepository;
+    private final OrganizationSyncManager orgSyncManager;
 
-    public OrganizationEvidenceService(PullRequestRepository prRepository, IssueRepository issueRepository, WorkflowRunRepository workflowRunRepository, com.gitinbits.persistence.repository.CommitRepository commitRepository) {
+    public OrganizationEvidenceService(PullRequestRepository prRepository, IssueRepository issueRepository, WorkflowRunRepository workflowRunRepository, com.gitinbits.persistence.repository.CommitRepository commitRepository, SyncMetadataRepository syncMetadataRepository, OrganizationSyncManager orgSyncManager) {
         this.prRepository = prRepository;
         this.issueRepository = issueRepository;
         this.workflowRunRepository = workflowRunRepository;
         this.commitRepository = commitRepository;
+        this.syncMetadataRepository = syncMetadataRepository;
+        this.orgSyncManager = orgSyncManager;
     }
 
     public record EvidenceItem(String text, String timestamp) {}
@@ -38,7 +43,8 @@ public class OrganizationEvidenceService {
             long totalIssuesClosed,
             long totalWorkflowFailures,
             long totalCommits,
-            long activePrCount
+            long activePrCount,
+            boolean isSyncing
     ) {}
 
     public OrganizationEvidence gatherEvidence(String owner, Instant since, Instant until) {
@@ -96,6 +102,8 @@ public class OrganizationEvidenceService {
         // Count ALL currently open PRs — not filtered by timeframe, since open means open regardless of when last updated
         long activePrCount = prRepository.countByOwnerAndStateIgnoreCase(owner, "open");
 
+        boolean isSyncing = orgSyncManager.isSyncing(owner) || syncMetadataRepository.existsByOwnerAndStatus(owner, "IN_PROGRESS");
+
         return new OrganizationEvidence(
                 activeWorkstreams,
                 recentlyCompleted,
@@ -104,7 +112,8 @@ public class OrganizationEvidenceService {
                 totalIssues,
                 totalFailures,
                 totalCommits,
-                activePrCount
+                activePrCount,
+                isSyncing
         );
     }
 }

@@ -14,8 +14,11 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  * <p>Architecture is intentionally modular to support future layers:
  * Normalization → Analysis → AI → Visualization.
  */
+import org.springframework.scheduling.annotation.EnableAsync;
+
 @SpringBootApplication
 @ConfigurationPropertiesScan
+@EnableAsync
 public class GitInBitsApplication {
 
     public static void main(String[] args) {

@@ -24,6 +24,7 @@ public class DashboardController {
     private final com.gitinbits.service.OrganizationEvidenceService orgEvidenceService;
     private final com.gitinbits.service.github.GitHubRepoService repoService;
     private final com.gitinbits.sync.RepositorySynchronizer repositorySynchronizer;
+    private final com.gitinbits.service.OrganizationSyncManager orgSyncManager;
 
     public DashboardController(
             OrganizationSummaryRepository summaryRepository,
@@ -31,7 +32,8 @@ public class DashboardController {
             AiDashboardService aiDashboardService,
             com.gitinbits.service.OrganizationEvidenceService orgEvidenceService,
             com.gitinbits.service.github.GitHubRepoService repoService,
-            com.gitinbits.sync.RepositorySynchronizer repositorySynchronizer
+            com.gitinbits.sync.RepositorySynchronizer repositorySynchronizer,
+            com.gitinbits.service.OrganizationSyncManager orgSyncManager
     ) {
         this.summaryRepository = summaryRepository;
         this.devEvidenceService = devEvidenceService;
@@ -39,6 +41,7 @@ public class DashboardController {
         this.orgEvidenceService = orgEvidenceService;
         this.repoService = repoService;
         this.repositorySynchronizer = repositorySynchronizer;
+        this.orgSyncManager = orgSyncManager;
     }
 
     @GetMapping("/summary")
@@ -47,6 +50,20 @@ public class DashboardController {
             @RequestParam(defaultValue = "1_day") String timeframe
     ) {
         Optional<OrganizationSummaryDoc> doc = summaryRepository.findFirstByOwnerAndTimeframeOrderByGeneratedAtDesc(owner, timeframe);
+        
+        if (doc.isPresent()) {
+            OrganizationSummaryDoc summary = doc.get();
+            if (summary.generatedAt() != null && summary.generatedAt().isBefore(java.time.Instant.now().minus(java.time.Duration.ofHours(4)))) {
+                log.info("AI Summary for {} (timeframe {}) is older than 4 hours. Auto-regenerating...", owner, timeframe);
+                try {
+                    aiDashboardService.generateOrgBrief(owner, timeframe);
+                    doc = summaryRepository.findFirstByOwnerAndTimeframeOrderByGeneratedAtDesc(owner, timeframe);
+                } catch (Exception e) {
+                    log.error("Failed to auto-regenerate stale summary", e);
+                }
+            }
+        }
+        
         return doc.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -109,8 +126,10 @@ public class DashboardController {
             @RequestParam String owner,
             @RequestParam(defaultValue = "1_day") String timeframe
     ) {
-        // Trigger background sync, don't block the UI
-        syncAllReposAsync(owner);
+        // Trigger background sync only if not already running
+        if (orgSyncManager.startSyncIfNotRunning(owner)) {
+            syncAllReposAsync(owner);
+        }
 
         int days = 1;
         if (timeframe.startsWith("3_")) days = 3;
@@ -149,6 +168,7 @@ public class DashboardController {
                 syncAllRepos(owner);
             } finally {
                 org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                orgSyncManager.markSyncFinished(owner);
             }
         }).start();
     }

@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface SyncMetadataRepository extends MongoRepository<SyncMetadataDoc, String> {
+    boolean existsByOwnerAndStatus(String owner, String status);
 }

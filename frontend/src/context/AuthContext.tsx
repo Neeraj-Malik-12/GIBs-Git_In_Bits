@@ -48,6 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiClient.post('/api/auth/logout');
       setUser(null);
+      // Clear data source from local storage so the next user doesn't see the previous user's selection
+      localStorage.removeItem('gib_source_type');
+      localStorage.removeItem('gib_source_value');
       window.location.href = '/login';
     } catch (err) {
       console.error('Logout failed', err);

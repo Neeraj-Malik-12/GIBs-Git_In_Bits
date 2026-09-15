@@ -136,11 +136,11 @@ export function Dashboard() {
               </div>
               <button 
                 onClick={handleGenerate}
-                disabled={generating}
+                disabled={generating || (orgEvidence && orgEvidence.isSyncing)}
                 className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded text-sm flex items-center transition-colors disabled:opacity-50"
               >
-                {generating ? <Spinner className="w-4 h-4 mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                Generate Briefing
+                {generating || (orgEvidence && orgEvidence.isSyncing) ? <Spinner className="w-4 h-4 mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                {(orgEvidence && orgEvidence.isSyncing) ? "Syncing Data..." : "Generate Briefing"}
               </button>
             </div>
 
@@ -152,7 +152,12 @@ export function Dashboard() {
             )}
 
             <div className="bg-[#1E293B]/60 p-6 rounded-xl border border-slate-700/50 min-h-[120px] flex items-start mb-6 shadow-inner backdrop-blur-sm transition-all duration-500">
-              {summaryLoading ? (
+              {orgEvidence && orgEvidence.isSyncing ? (
+                <div className="w-full text-center text-blue-400 flex flex-col items-center justify-center py-8 animate-pulse">
+                  <Spinner className="w-8 h-8 mb-4" /> 
+                  <span className="text-sm font-medium tracking-wide">Waiting for background sync to complete before generating AI summary...</span>
+                </div>
+              ) : summaryLoading ? (
                 <div className="w-full text-center text-blue-400 flex flex-col items-center justify-center py-8 animate-pulse">
                   <Spinner className="w-8 h-8 mb-4" /> 
                   <span className="text-sm font-medium tracking-wide">Analyzing organization data...</span>
@@ -163,7 +168,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <p className="text-slate-400 italic text-center w-full">
-                  No briefing generated yet. Click "Generate New" to run the nightly AI summary task immediately.
+                  No briefing generated yet. Click "Generate Briefing" to run the AI summary task.
                 </p>
               )}
             </div>
@@ -171,6 +176,15 @@ export function Dashboard() {
             {/* Deterministic Organization Evidence */}
             {evidenceLoading ? (
                <div className="flex justify-center py-4"><Spinner className="w-6 h-6 text-blue-500" /></div>
+            ) : orgEvidence && orgEvidence.isSyncing ? (
+               <div className="bg-[#1E293B]/60 p-8 rounded-xl border border-slate-700/50 flex flex-col items-center justify-center text-center shadow-inner mt-6">
+                 <Spinner className="w-8 h-8 text-blue-400 mb-4" />
+                 <h3 className="text-lg font-bold text-white mb-2">Syncing Organization Data</h3>
+                 <p className="text-sm text-slate-400 max-w-md">
+                   We are securely fetching and analyzing repository history in the background. 
+                   This might take a minute or two depending on the size of the organization.
+                 </p>
+               </div>
             ) : orgEvidence ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 

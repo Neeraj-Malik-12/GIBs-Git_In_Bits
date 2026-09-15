@@ -9,6 +9,9 @@ server:
         http-only: true
 
 spring:
+  threads:
+    virtual:
+      enabled: true
   application:
     name: gitinbits-poc
 

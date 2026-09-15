@@ -70,10 +70,24 @@ public class RepositorySynchronizer {
         }
     }
 
+    @org.springframework.scheduling.annotation.Async
     public void synchronize(GitHubContext context, String repoFullName) {
         log.debug("synchronization started for {}", repoFullName);
         Instant start = Instant.now();
         Instant syncTime = start;
+
+        // Mark as IN_PROGRESS
+        SyncMetadataDoc initialMetadata = syncMetadataRepository.findById(repoFullName).orElse(
+                new SyncMetadataDoc(repoFullName, repoFullName.split("/")[0], null, null, null, null)
+        );
+        syncMetadataRepository.save(new SyncMetadataDoc(
+                repoFullName,
+                initialMetadata.owner(),
+                initialMetadata.lastSyncTimestamp(),
+                initialMetadata.latestSynchronizedCommitSha(),
+                "IN_PROGRESS",
+                initialMetadata.lastAnalyzedTimestamp()
+        ));
 
         // Split repoFullName (e.g. "owner/repo") into its parts
         // GitHubRepoService prepends context.accountName() internally,
