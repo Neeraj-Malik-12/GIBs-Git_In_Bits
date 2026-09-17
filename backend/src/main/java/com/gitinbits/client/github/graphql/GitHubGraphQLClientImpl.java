@@ -81,12 +81,16 @@ public class GitHubGraphQLClientImpl implements GitHubGraphQLClient {
     @Override
     public List<CommitDto> fetchCommitsWithStats(String org, String repo, Instant since) {
         String query = """
-            query($owner: String!, $repo: String!, $since: GitTimestamp!) {
+            query($owner: String!, $repo: String!, $since: GitTimestamp!, $after: String) {
               repository(owner: $owner, name: $repo) {
                 defaultBranchRef {
                   target {
                     ... on Commit {
-                      history(since: $since, first: 100) {
+                      history(since: $since, first: 100, after: $after) {
+                        pageInfo {
+                          hasNextPage
+                          endCursor
+                        }
                         nodes {
                           oid
                           message
@@ -108,44 +112,67 @@ public class GitHubGraphQLClientImpl implements GitHubGraphQLClient {
             }
         """;
 
-        JsonNode data = executeQuery(query, Map.of("owner", org, "repo", repo, "since", since.toString()));
-        List<CommitDto> commits = new ArrayList<>();
-        
-        if (data == null || !data.hasNonNull("repository")) return commits;
-        JsonNode repository = data.get("repository");
-        if (!repository.hasNonNull("defaultBranchRef")) return commits;
-        JsonNode target = repository.get("defaultBranchRef").get("target");
-        if (!target.hasNonNull("history")) return commits;
-        JsonNode nodes = target.get("history").get("nodes");
-        
-        if (nodes != null && nodes.isArray()) {
-            for (JsonNode node : nodes) {
-                String sha = node.path("oid").asText(null);
-                String message = node.path("message").asText(null);
-                String authoredDate = node.path("authoredDate").asText(null);
-                Integer additions = node.path("additions").asInt(0);
-                Integer deletions = node.path("deletions").asInt(0);
-                Integer filesChanged = node.path("changedFilesIfAvailable").asInt(0);
-                
-                String authorName = null, authorEmail = null, login = null;
-                JsonNode authorNode = node.get("author");
-                if (authorNode != null) {
-                    authorName = authorNode.path("name").asText(null);
-                    authorEmail = authorNode.path("email").asText(null);
-                    JsonNode userNode = authorNode.get("user");
-                    if (userNode != null && !userNode.isNull()) {
-                        login = userNode.path("login").asText(null);
-                    }
-                }
-                
-                commits.add(new CommitDto(
-                        sha, authorName, authorEmail, authorName, authorEmail, login,
-                        message, authoredDate, null, List.of(), null, null,
-                        filesChanged, additions, deletions, additions + deletions, List.of()
-                ));
+        List<CommitDto> allCommits = new ArrayList<>();
+        String cursor = null;
+        int maxPages = 10; // Safety cap: 10 pages × 100 = 1000 commits max
+
+        for (int page = 0; page < maxPages; page++) {
+            Map<String, Object> variables = new java.util.HashMap<>(Map.of(
+                "owner", org, "repo", repo, "since", since.toString()
+            ));
+            if (cursor != null) {
+                variables.put("after", cursor);
             }
+
+            JsonNode data = executeQuery(query, variables);
+
+            if (data == null || !data.hasNonNull("repository")) break;
+            JsonNode repository = data.get("repository");
+            if (!repository.hasNonNull("defaultBranchRef")) break;
+            JsonNode target = repository.get("defaultBranchRef").get("target");
+            if (!target.hasNonNull("history")) break;
+            JsonNode history = target.get("history");
+            JsonNode nodes = history.get("nodes");
+
+            if (nodes != null && nodes.isArray()) {
+                for (JsonNode node : nodes) {
+                    String sha = node.path("oid").asText(null);
+                    String message = node.path("message").asText(null);
+                    String authoredDate = node.path("authoredDate").asText(null);
+                    Integer additions = node.path("additions").asInt(0);
+                    Integer deletions = node.path("deletions").asInt(0);
+                    Integer filesChanged = node.path("changedFilesIfAvailable").asInt(0);
+
+                    String authorName = null, authorEmail = null, login = null;
+                    JsonNode authorNode = node.get("author");
+                    if (authorNode != null) {
+                        authorName = authorNode.path("name").asText(null);
+                        authorEmail = authorNode.path("email").asText(null);
+                        JsonNode userNode = authorNode.get("user");
+                        if (userNode != null && !userNode.isNull()) {
+                            login = userNode.path("login").asText(null);
+                        }
+                    }
+
+                    allCommits.add(new CommitDto(
+                            sha, authorName, authorEmail, authorName, authorEmail, login,
+                            message, authoredDate, null, List.of(), null, null,
+                            filesChanged, additions, deletions, additions + deletions, List.of()
+                    ));
+                }
+            }
+
+            // Check pagination
+            JsonNode pageInfo = history.get("pageInfo");
+            if (pageInfo == null || !pageInfo.path("hasNextPage").asBoolean(false)) {
+                break; // No more pages
+            }
+            cursor = pageInfo.path("endCursor").asText(null);
+            if (cursor == null) break;
         }
-        return commits;
+
+        log.debug("Fetched {} total commits for {}/{}", allCommits.size(), org, repo);
+        return allCommits;
     }
 
     @Override

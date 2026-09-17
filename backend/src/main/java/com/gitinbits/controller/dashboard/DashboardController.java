@@ -73,9 +73,8 @@ public class DashboardController {
             @RequestParam String owner,
             @RequestParam(defaultValue = "1_day") String timeframe
     ) {
-        // Trigger background sync and block AI generation until done so it uses fresh data
-        syncAllRepos(owner);
-        
+        // Directly generate AI summary from whatever data is already in MongoDB.
+        // Background sync runs independently on a schedule - not blocking the user here.
         try {
             aiDashboardService.generateOrgBrief(owner, timeframe);
             return ResponseEntity.ok(Map.of("status", "Summary generated successfully"));
@@ -126,7 +125,7 @@ public class DashboardController {
             @RequestParam String owner,
             @RequestParam(defaultValue = "1_day") String timeframe
     ) {
-        // Trigger background sync only if not already running
+        // Trigger background sync if not already running for this organization
         if (orgSyncManager.startSyncIfNotRunning(owner)) {
             syncAllReposAsync(owner);
         }
@@ -136,6 +135,7 @@ public class DashboardController {
         else if (timeframe.startsWith("7_")) days = 7;
         else if (timeframe.startsWith("10_")) days = 10;
         else if (timeframe.startsWith("30_")) days = 30;
+        else if (timeframe.equals("lifetime")) days = 36500;
         
         java.time.Instant until = java.time.Instant.now();
         java.time.Instant since = until.minus(java.time.Duration.ofDays(days));
@@ -150,7 +150,11 @@ public class DashboardController {
             List<com.gitinbits.dto.response.repo.RepoDto> repos = repoService.listRepos(context);
             for (com.gitinbits.dto.response.repo.RepoDto repo : repos) {
                 try {
-                    repositorySynchronizer.syncIfNeeded(context, owner + "/" + repo.name());
+                    String[] parts = repo.fullName().split("/", 2);
+                    String repoOwner = parts.length == 2 ? parts[0] : owner;
+                    com.gitinbits.dto.context.GitHubContext repoContext = new com.gitinbits.dto.context.GitHubContext(
+                        context.sourceType(), repoOwner, repo.name());
+                    repositorySynchronizer.syncIfNeeded(repoContext, repo.fullName());
                 } catch (Exception innerEx) {
                     log.error("Failed to sync repo {}", repo.name(), innerEx);
                 }

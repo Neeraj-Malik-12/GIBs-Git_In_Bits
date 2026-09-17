@@ -21,6 +21,21 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableAsync
 public class GitInBitsApplication {
 
+    @org.springframework.context.annotation.Bean
+    public org.springframework.boot.CommandLineRunner resetStuckSyncs(com.gitinbits.persistence.repository.SyncMetadataRepository repo) {
+        return args -> {
+            java.util.List<com.gitinbits.persistence.document.SyncMetadataDoc> stuck = repo.findAll().stream()
+                .filter(m -> "IN_PROGRESS".equals(m.status()))
+                .toList();
+            for (com.gitinbits.persistence.document.SyncMetadataDoc doc : stuck) {
+                repo.save(new com.gitinbits.persistence.document.SyncMetadataDoc(
+                    doc.repoFullName(), doc.owner(), doc.lastSyncTimestamp(),
+                    doc.latestSynchronizedCommitSha(), "COMPLETED", doc.lastAnalyzedTimestamp()
+                ));
+            }
+        };
+    }
+
     public static void main(String[] args) {
         SpringApplication.run(GitInBitsApplication.class, args);
     }

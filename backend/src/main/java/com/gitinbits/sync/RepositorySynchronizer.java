@@ -19,6 +19,10 @@ public class RepositorySynchronizer {
 
     private static final Logger log = LoggerFactory.getLogger(RepositorySynchronizer.class);
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private RepositorySynchronizer self;
+
     private final GitHubRepoService githubRepoService;
     private final GithubToDocumentMapper mapper;
     
@@ -64,22 +68,35 @@ public class RepositorySynchronizer {
     public void syncIfNeeded(GitHubContext context, String repoFullName) {
         SyncMetadataDoc metadata = syncMetadataRepository.findById(repoFullName).orElse(null);
         if (metadata == null || metadata.lastSyncTimestamp() == null || 
-            metadata.lastSyncTimestamp().isBefore(Instant.now().minus(Duration.ofMinutes(5)))) {
+            metadata.lastSyncTimestamp().isBefore(Instant.now().minus(Duration.ofMinutes(30)))) {
             log.info("Repository {} requires synchronization...", repoFullName);
-            synchronize(context, repoFullName);
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            try {
+                self.synchronize(context, repoFullName, auth);
+            } catch (Exception ex) {
+                log.error("Proxy invocation failed", ex);
+                try {
+                    java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync-error.log", true));
+                    pw.println("Proxy failed for " + repoFullName);
+                    ex.printStackTrace(pw);
+                    pw.close();
+                } catch (Exception e) {}
+            }
         }
     }
 
     @org.springframework.scheduling.annotation.Async
-    public void synchronize(GitHubContext context, String repoFullName) {
-        log.debug("synchronization started for {}", repoFullName);
-        Instant start = Instant.now();
-        Instant syncTime = start;
+    public void synchronize(GitHubContext context, String repoFullName, org.springframework.security.core.Authentication auth) {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+        try {
+            log.debug("synchronization started for {}", repoFullName);
+            Instant start = Instant.now();
+            Instant syncTime = start;
 
-        // Mark as IN_PROGRESS
-        SyncMetadataDoc initialMetadata = syncMetadataRepository.findById(repoFullName).orElse(
-                new SyncMetadataDoc(repoFullName, repoFullName.split("/")[0], null, null, null, null)
-        );
+            // Mark as IN_PROGRESS
+            SyncMetadataDoc initialMetadata = syncMetadataRepository.findById(repoFullName).orElse(
+                    new SyncMetadataDoc(repoFullName, repoFullName.split("/")[0], null, null, null, null)
+            );
         syncMetadataRepository.save(new SyncMetadataDoc(
                 repoFullName,
                 initialMetadata.owner(),
@@ -97,7 +114,9 @@ public class RepositorySynchronizer {
 
         // Fetch Raw DTOs — pass repoName only, not repoFullName
         RepoDto repoDto = githubRepoService.getRepo(context, repoName);
-        Instant since = Instant.now().minus(Duration.ofDays(30));
+        // Fetch commits from the last year for a comprehensive developer history.
+        // Note: For initial sync this is broader to populate lifetime data accurately.
+        Instant since = Instant.now().minus(Duration.ofDays(365));
         List<CommitDto> commits = githubRepoService.listDetailedCommitsSince(context, repoName, since);
         List<com.gitinbits.client.github.graphql.PullRequestWithReviews> prsWithReviews = githubRepoService.listDetailedPullsWithReviews(context, repoName);
         List<IssueDto> issues = githubRepoService.listIssues(context, repoName);
@@ -184,8 +203,16 @@ public class RepositorySynchronizer {
 
         log.debug("synchronization completed for {}", repoFullName);
         log.debug("inserted document count: {}", totalUpserted); // Using totalUpserted for simplicity in this PoC
-        log.debug("updated document count: 0"); // Spring Data save() acts as upsert natively
-        log.debug("skipped document count: 0");
-        log.debug("synchronization duration: {} ms", duration.toMillis());
+        } catch (Exception ex) {
+            log.error("Fatal error in synchronization", ex);
+            try {
+                java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync-error.log", true));
+                pw.println("Sync failed for " + repoFullName);
+                ex.printStackTrace(pw);
+                pw.close();
+            } catch (Exception e) {}
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }

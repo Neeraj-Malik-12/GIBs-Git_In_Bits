@@ -2,6 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from './client';
 
 export interface DeveloperActivitySummary {
+  githubLogin: string;
   id: string;
   commitCount: number;
   latestCommitDate: string;
@@ -126,8 +127,10 @@ export const useOrganizationEvidence = (owner: string, timeframe: string = '1_da
     enabled: !!owner,
     refetchInterval: (query) => {
       if (!query.state.data) return false;
-      // Poll every 3 seconds while backend explicitly reports isSyncing
-      return query.state.data.isSyncing ? 3000 : false;
+      const d = query.state.data;
+      const isZero = d.totalCommits === 0 && d.activePrCount === 0 && d.totalPrsMerged === 0;
+      // Poll every 3 seconds while backend reports isSyncing OR if metrics are all zero
+      return (d.isSyncing || isZero) ? 3000 : false;
     }
   });
 };

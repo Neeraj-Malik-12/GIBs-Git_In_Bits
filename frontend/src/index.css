@@ -2,23 +2,116 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-background: #0f172a; /* slate-900 */
-  --color-surface: #1e293b; /* slate-800 */
-  --color-border: #334155; /* slate-700 */
-  --color-primary: #3b82f6; /* blue-500 */
-  --color-text-primary: #f8fafc; /* slate-50 */
-  --color-text-secondary: #94a3b8; /* slate-400 */
-  
+  --color-background: #0f172a;
+  /* slate-900 */
+  --color-surface: #1e293b;
+  /* slate-800 */
+  --color-border: #334155;
+  /* slate-700 */
+  --color-primary: #3b82f6;
+  /* blue-500 */
+  --color-text-primary: #f8fafc;
+  /* slate-50 */
+  --color-text-secondary: #94a3b8;
+  /* slate-400 */
+
   --animate-fade-in: fade-in 0.3s ease-out;
-  @keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+  --animate-gentle-bob: gentle-bob 2.6s ease-in-out infinite;
+  --animate-slow-jump: slow-jump 2.2s ease-in-out infinite;
+  --animate-spin-slow: spin 8s linear infinite;
+  --animate-shimmer-wave: shimmer-wave 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gentle-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes slow-jump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  28% {
+    transform: translateY(-16px) scale(1.02);
+  }
+  48% {
+    transform: translateY(0) scale(0.98);
+  }
+  62% {
+    transform: translateY(-7px);
+  }
+  75% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer-wave {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.animate-shimmer-wave {
+  animation: shimmer-wave 2s ease-in-out infinite;
+}
+
+.animate-slow-jump {
+  animation: slow-jump 2.2s ease-in-out infinite !important;
 }
 
 @layer base {
   body {
     background-color: var(--color-background);
     color: var(--color-text-primary);
+  }
+}
+
+@layer utilities {
+  .clay-card {
+    background: #1e293b;
+    border-radius: 1.5rem;
+    border: none;
+    box-shadow:
+      4px 4px 8px rgba(0, 0, 0, 0.3),
+      -4px -4px 8px rgba(255, 255, 255, 0.02),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.04),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .clay-card:hover {
+    box-shadow:
+      6px 6px 12px rgba(0, 0, 0, 0.4),
+      -4px -4px 10px rgba(255, 255, 255, 0.03),
+      inset 3px 3px 8px rgba(255, 255, 255, 0.06),
+      inset -3px -3px 8px rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .clay-chip {
+    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.05);
   }
 }

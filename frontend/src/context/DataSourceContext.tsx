@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { DataSourceType } from '../types';
+import { useAuth } from './AuthContext';
 
 interface DataSourceContextType {
   sourceType: DataSourceType | null;
@@ -11,6 +12,8 @@ interface DataSourceContextType {
 export const DataSourceContext = createContext<DataSourceContextType | undefined>(undefined);
 
 export function DataSourceProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  
   const [sourceType, setSourceTypeState] = useState<DataSourceType | null>(() => {
     return localStorage.getItem('gib_source_type') as DataSourceType | null;
   });
@@ -34,6 +37,16 @@ export function DataSourceProvider({ children }: { children: React.ReactNode }) 
   };
 
   // Sync state across tabs if needed
+  useEffect(() => {
+    if (user) {
+      const lastUser = localStorage.getItem('gib_last_user');
+      if (lastUser && lastUser !== user.login) {
+        clearDataSource();
+      }
+      localStorage.setItem('gib_last_user', user.login);
+    }
+  }, [user?.login]);
+
   useEffect(() => {
     const handleStorage = () => {
       setSourceTypeState(localStorage.getItem('gib_source_type') as DataSourceType | null);

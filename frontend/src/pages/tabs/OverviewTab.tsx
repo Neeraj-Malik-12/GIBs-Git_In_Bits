@@ -1,5 +1,6 @@
 import { useRepoDetails } from '../../api/queries';
 import { DetailCard } from '../../components/common/DetailCard';
+import { LanguageBadge } from '../../components/common/LanguageBadge';
 import { RepositoryAnalysisSection } from '../../components/analysis/RepositoryAnalysisSection';
 import { RepositoryStabilitySection } from '../../components/analysis/RepositoryStabilitySection';
 import { RepositoryRiskSection } from '../../components/analysis/RepositoryRiskSection';
@@ -21,7 +22,7 @@ export function OverviewTab({ repoName }: { repoName: string }) {
             { label: 'Full Name', value: repo.fullName },
             { label: 'Description', value: repo.description || 'N/A' },
             { label: 'Default Branch', value: repo.defaultBranch },
-            { label: 'Language', value: repo.language || 'N/A' },
+            { label: 'Language', value: <LanguageBadge language={repo.language} size="md" /> },
             { label: 'License', value: repo.license || 'N/A' },
             { label: 'Created At', value: new Date(repo.createdAt).toLocaleString() },
             { label: 'Last Updated', value: new Date(repo.updatedAt).toLocaleString() },
