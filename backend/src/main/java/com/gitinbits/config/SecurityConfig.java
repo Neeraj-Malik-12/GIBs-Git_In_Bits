@@ -35,17 +35,8 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 @EnableWebSecurity
 public class SecurityConfig {
 
-    /**
-     * The URL the frontend should redirect to after OAuth2 login succeeds.
-     * The frontend reads the session cookie set during this redirect and then
-     * calls GET /api/auth/me to confirm the session.
-     */
-    private static final String FRONTEND_CALLBACK_URL = "http://localhost:5174/auth/callback";
-
-    /**
-     * The URL the browser is redirected to after logout.
-     */
-    private static final String FRONTEND_BASE_URL = "http://localhost:5174";
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5174}")
+    private String frontendUrl;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrationRepository) throws Exception {
@@ -86,9 +77,8 @@ public class SecurityConfig {
                         // After successful GitHub login, redirect the browser to
                         // the frontend callback URL. The session cookie is set
                         // on this redirect, making it available to the SPA.
-                        .defaultSuccessUrl(FRONTEND_CALLBACK_URL, true)
-                        // On login failure, redirect to frontend with an error indicator
-                        .failureUrl("http://localhost:5174/auth/error")
+                        .defaultSuccessUrl(frontendUrl + "/auth/callback", true)
+                        .failureUrl(frontendUrl + "/auth/error")
                 )
 
                 // ── Logout ────────────────────────────────────────────────────

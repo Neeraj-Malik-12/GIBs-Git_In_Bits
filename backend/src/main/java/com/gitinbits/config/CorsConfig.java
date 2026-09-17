@@ -1,38 +1,34 @@
 package com.gitinbits.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * CORS configuration for the Git in Bits PoC backend.
- *
- * <p>Whitelists only the local Vite frontend ({@code http://localhost:5174}).
- * {@code allowCredentials} is required to allow the session cookie to be
- * sent in cross-origin requests from the SPA.
- *
- * <p>For production, replace the allowed origin with the actual deployed
- * frontend URL and set {@code allowedHeaders} and {@code exposedHeaders}
- * explicitly.
- */
 @Configuration
 public class CorsConfig {
+
+    @Value("${app.frontend-url:http://localhost:5174}")
+    private String frontendUrl;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Only the Vite frontend is allowed to make cross-origin requests
-        config.setAllowedOrigins(List.of("http://localhost:5174"));
+        List<String> patterns = new ArrayList<>();
+        patterns.add("http://localhost:*");
+        patterns.add("https://*.vercel.app");
+        if (frontendUrl != null && !frontendUrl.isBlank()) {
+            patterns.add(frontendUrl.trim());
+        }
 
-        // Allow the methods used by the frontend
-        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
-
-        // Allow all headers the frontend might send
+        config.setAllowedOriginPatterns(patterns);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
 
         // Allow the browser to expose the session cookie on cross-origin requests.
