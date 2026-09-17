@@ -84,8 +84,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Spring Security's OAuth2 endpoints — must be public
                         .requestMatchers("/login/**", "/oauth2/**").permitAll()
-                        // Actuator health (if added later)
-                        .requestMatchers("/actuator/health").permitAll()
+                        // Public health endpoint for keep-alive pings & uptime monitors
+                        .requestMatchers("/health", "/actuator/health").permitAll()
                         // Error endpoint
                         .requestMatchers("/error").permitAll()
                         // All application API endpoints require a valid GitHub session
