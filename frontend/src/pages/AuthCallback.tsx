@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDataSource } from '../context/DataSourceContext';
 import { Spinner } from '../components/ui/Spinner';
@@ -8,6 +8,7 @@ export function AuthCallback() {
   const { checkAuth } = useAuth();
   const { sourceType } = useDataSource();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const hasChecked = useRef(false);
 
   useEffect(() => {
@@ -15,6 +16,11 @@ export function AuthCallback() {
     hasChecked.current = true;
 
     const authenticate = async () => {
+      const token = searchParams.get('token');
+      if (token) {
+        localStorage.setItem('gib_auth_token', token);
+      }
+
       const user = await checkAuth();
       if (user) {
         if (sourceType) {
@@ -23,12 +29,13 @@ export function AuthCallback() {
           navigate('/data-source-selection', { replace: true });
         }
       } else {
+        localStorage.removeItem('gib_auth_token');
         navigate('/login', { replace: true });
       }
     };
 
     authenticate();
-  }, [checkAuth, navigate, sourceType]);
+  }, [checkAuth, navigate, sourceType, searchParams]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background text-text-primary space-y-4">

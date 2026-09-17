@@ -38,6 +38,18 @@ public class SecurityConfig {
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5174}")
     private String frontendUrl;
 
+    private final com.gitinbits.auth.AuthTokenService authTokenService;
+    private final com.gitinbits.auth.TokenAuthenticationFilter tokenAuthenticationFilter;
+    private final org.springframework.security.oauth2.client.OAuth2AuthorizedClientService authorizedClientService;
+
+    public SecurityConfig(com.gitinbits.auth.AuthTokenService authTokenService,
+                          com.gitinbits.auth.TokenAuthenticationFilter tokenAuthenticationFilter,
+                          org.springframework.security.oauth2.client.OAuth2AuthorizedClientService authorizedClientService) {
+        this.authTokenService = authTokenService;
+        this.tokenAuthenticationFilter = tokenAuthenticationFilter;
+        this.authorizedClientService = authorizedClientService;
+    }
+
     private String cleanUrl(String url) {
         if (url == null || url.isBlank()) {
             return "http://localhost:5174";
@@ -59,11 +71,14 @@ public class SecurityConfig {
 
         http
                 // ── CORS ─────────────────────────────────────────────────────
-                // Uses the CorsConfig bean (configured for localhost:5174 only)
+                // Uses the CorsConfig bean (configured for localhost and vercel)
                 .cors(Customizer.withDefaults())
 
                 // ── CSRF ──────────────────────────────────────────────────────
                 .csrf(AbstractHttpConfigurer::disable)
+
+                // ── Token Auth Filter (Cross-Domain Support) ──────────────────
+                .addFilterBefore(tokenAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
 
                 // ── Authorization Rules ───────────────────────────────────────
                 .authorizeHttpRequests(auth -> auth
@@ -82,10 +97,21 @@ public class SecurityConfig {
                         .authorizationEndpoint(auth -> auth
                                 .authorizationRequestResolver(resolver)
                         )
-                        // After successful GitHub login, redirect the browser to
-                        // the frontend callback URL. The session cookie is set
-                        // on this redirect, making it available to the SPA.
-                        .defaultSuccessUrl(cleanUrl(frontendUrl) + "/auth/callback", true)
+                        // After successful GitHub login, create an app auth token and redirect
+                        // to the frontend callback URL with the token.
+                        .successHandler((request, response, authentication) -> {
+                            if (authentication instanceof org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken oauthToken) {
+                                org.springframework.security.oauth2.client.OAuth2AuthorizedClient client = 
+                                        authorizedClientService.loadAuthorizedClient(
+                                                oauthToken.getAuthorizedClientRegistrationId(),
+                                                oauthToken.getName()
+                                        );
+                                String token = authTokenService.createToken(oauthToken, client);
+                                response.sendRedirect(cleanUrl(frontendUrl) + "/auth/callback?token=" + token);
+                            } else {
+                                response.sendRedirect(cleanUrl(frontendUrl) + "/auth/callback");
+                            }
+                        })
                         .failureUrl(cleanUrl(frontendUrl) + "/auth/error")
                 )
 
@@ -93,6 +119,10 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .logoutSuccessHandler((request, response, authentication) -> {
+                            String authHeader = request.getHeader("Authorization");
+                            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                                authTokenService.removeToken(authHeader.substring(7).trim());
+                            }
                             response.setStatus(200);
                         })
                         .deleteCookies("JSESSIONID")

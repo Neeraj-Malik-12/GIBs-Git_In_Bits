@@ -9,8 +9,13 @@ export const apiClient = axios.create({
   withCredentials: true, // Crucial for Spring Security Sessions
 });
 
-// Request Interceptor: Attach Data Source headers
+// Request Interceptor: Attach Auth Token and Data Source headers
 apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('gib_auth_token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const sourceType = localStorage.getItem('gib_source_type');
   const sourceValue = localStorage.getItem('gib_source_value');
   
