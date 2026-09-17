@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { apiClient } from '../api/client';
+import { apiClient, API_BASE_URL } from '../api/client';
 
 interface AuthUser {
   login: string;
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = () => {
-    window.location.href = 'http://localhost:9090/oauth2/authorization/github';
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/github`;
   };
 
   const logout = async () => {

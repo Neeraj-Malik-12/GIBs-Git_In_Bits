@@ -24,7 +24,11 @@ public class CorsConfig {
         patterns.add("http://localhost:*");
         patterns.add("https://*.vercel.app");
         if (frontendUrl != null && !frontendUrl.isBlank()) {
-            patterns.add(frontendUrl.trim());
+            String clean = frontendUrl.trim();
+            if (clean.endsWith("/")) {
+                clean = clean.substring(0, clean.length() - 1);
+            }
+            patterns.add(clean);
         }
 
         config.setAllowedOriginPatterns(patterns);

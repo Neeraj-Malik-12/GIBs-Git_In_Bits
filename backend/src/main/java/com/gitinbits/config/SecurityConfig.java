@@ -38,6 +38,14 @@ public class SecurityConfig {
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5174}")
     private String frontendUrl;
 
+    private String cleanUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return "http://localhost:5174";
+        }
+        String trimmed = url.trim();
+        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrationRepository) throws Exception {
         
@@ -77,8 +85,8 @@ public class SecurityConfig {
                         // After successful GitHub login, redirect the browser to
                         // the frontend callback URL. The session cookie is set
                         // on this redirect, making it available to the SPA.
-                        .defaultSuccessUrl(frontendUrl + "/auth/callback", true)
-                        .failureUrl(frontendUrl + "/auth/error")
+                        .defaultSuccessUrl(cleanUrl(frontendUrl) + "/auth/callback", true)
+                        .failureUrl(cleanUrl(frontendUrl) + "/auth/error")
                 )
 
                 // ── Logout ────────────────────────────────────────────────────
