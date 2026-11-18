@@ -7,6 +7,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:90
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // Crucial for Spring Security Sessions
+  timeout: 45000, // 45s timeout to prevent hanging on cold starts
 });
 
 // Request Interceptor: Attach Auth Token and Data Source headers

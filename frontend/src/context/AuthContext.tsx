@@ -24,6 +24,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const checkAuth = async () => {
+    const token = localStorage.getItem('gib_auth_token');
+    if (!token) {
+      setUser(null);
+      setIsLoading(false);
+      return null;
+    }
+
     try {
       const { data } = await apiClient.get<AuthUser>('/api/auth/me');
       setUser(data);

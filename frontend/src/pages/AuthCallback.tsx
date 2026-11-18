@@ -19,6 +19,8 @@ export function AuthCallback() {
       const token = searchParams.get('token');
       if (token) {
         localStorage.setItem('gib_auth_token', token);
+        // Clear token from browser URL bar immediately for cleaner UX & security
+        window.history.replaceState({}, '', window.location.pathname);
       }
 
       const user = await checkAuth();
