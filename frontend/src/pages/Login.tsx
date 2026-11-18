@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Code, CheckCircle2, Clock } from 'lucide-react';
@@ -10,29 +10,30 @@ type ServerStatus = 'checking' | 'ready' | 'waking';
 export function Login() {
   const { user, login } = useAuth();
   const [serverStatus, setServerStatus] = useState<ServerStatus>('checking');
-  const pollTimerRef = useRef<number | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: number | null = null;
+    let abortController: AbortController | null = null;
 
     const checkServerHealth = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        abortController = new AbortController();
+        // Give Render up to 45 seconds to respond if it is mid-wake
+        const abortTimeout = setTimeout(() => abortController?.abort(), 45000);
+
         const res = await fetch(`${API_BASE_URL}/health`, {
-          signal: controller.signal,
-          headers: { 'Accept': 'application/json' }
+          signal: abortController.signal,
+          headers: { 'Accept': 'application/json' },
         });
-        clearTimeout(timeoutId);
+        clearTimeout(abortTimeout);
 
         if (!isMounted) return;
 
         if (res.ok) {
           setServerStatus('ready');
-          if (pollTimerRef.current) {
-            clearInterval(pollTimerRef.current);
-            pollTimerRef.current = null;
-          }
+          return; // Stop polling once ready
         } else {
           setServerStatus('waking');
         }
@@ -40,19 +41,19 @@ export function Login() {
         if (!isMounted) return;
         setServerStatus('waking');
       }
+
+      // Retry after 5s if still mounting and not ready yet
+      if (isMounted) {
+        timeoutId = window.setTimeout(checkServerHealth, 5000);
+      }
     };
 
-    // Immediate check
     checkServerHealth();
-
-    // Poll every 4 seconds until ready
-    pollTimerRef.current = window.setInterval(checkServerHealth, 4000);
 
     return () => {
       isMounted = false;
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
+      if (abortController) abortController.abort();
     };
   }, []);
 
@@ -60,7 +61,10 @@ export function Login() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const isWaking = serverStatus === 'waking';
+  const handleLogin = () => {
+    setIsRedirecting(true);
+    login();
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
@@ -96,32 +100,22 @@ export function Login() {
                   Waking up cloud server...
                 </div>
                 <p className="text-[11px] text-text-secondary leading-snug">
-                  Render free-tier hibernates after inactivity. It will be ready in ~30-60s.
+                  Render free-tier sleeps after inactivity (~30-60s to wake). You can still continue now.
                 </p>
               </div>
             )}
           </div>
 
           <Button
-            onClick={login}
+            onClick={handleLogin}
             className="w-full flex items-center justify-center"
             size="lg"
-            isLoading={isWaking}
-            disabled={isWaking}
+            isLoading={isRedirecting}
+            disabled={isRedirecting}
           >
             <Code className="mr-2 h-5 w-5" />
-            {isWaking ? 'Waiting for server...' : 'Continue with GitHub'}
+            {isRedirecting ? 'Connecting to GitHub...' : 'Continue with GitHub'}
           </Button>
-
-          {isWaking && (
-            <button
-              type="button"
-              onClick={login}
-              className="mt-3 text-xs text-text-secondary hover:text-text-primary underline cursor-pointer"
-            >
-              Continue anyway (if already awake)
-            </button>
-          )}
 
           <p className="mt-5 text-xs text-text-secondary">
             By authenticating, you allow Git in Bits to read your organization and repository metadata.
