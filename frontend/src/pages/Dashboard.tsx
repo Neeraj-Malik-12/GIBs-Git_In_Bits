@@ -74,9 +74,8 @@ export function Dashboard() {
 
   // Show skeleton if:
   // 1) Initial HTTP request is loading
-  // 2) Backend reports sync is in progress
-  // 3) All metrics are zeroes (awaiting initial sync), unless user clicked override
-  const isInitialSync = !showZeroesOverride && (evidenceLoading || isSyncing || hasZeroData);
+  // 2) Backend reports sync is in progress AND no metrics have been saved yet
+  const isInitialSync = !showZeroesOverride && (evidenceLoading || (isSyncing && hasZeroData));
 
   const handleGenerate = () => {
     if (isSyncing) return;
@@ -237,6 +236,10 @@ export function Dashboard() {
                 <div className="w-full text-slate-300 animate-fade-in">
                   <AIReportMarkdown content={orgSummary.summaryText} />
                 </div>
+              ) : hasZeroData ? (
+                <p className="text-slate-400 text-xs sm:text-sm text-center w-full py-1.5 leading-relaxed">
+                  No activity detected for {timeframe.replace('_', ' ')}. Switch timeframe in the top-right (e.g. <strong>"Lifetime"</strong>) to view your all-time commits and analytics.
+                </p>
               ) : (
                 <p className="text-slate-400 text-xs sm:text-sm italic text-center w-full py-1.5">
                   No briefing generated yet for this timeframe. Click "Generate Briefing" to run the AI summary task.

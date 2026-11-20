@@ -74,13 +74,7 @@ public class RepositorySynchronizer {
             try {
                 self.synchronize(context, repoFullName, auth);
             } catch (Exception ex) {
-                log.error("Proxy invocation failed", ex);
-                try {
-                    java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync-error.log", true));
-                    pw.println("Proxy failed for " + repoFullName);
-                    ex.printStackTrace(pw);
-                    pw.close();
-                } catch (Exception e) {}
+                log.error("Proxy invocation failed for {}", repoFullName, ex);
             }
         }
     }
@@ -201,16 +195,22 @@ public class RepositorySynchronizer {
         
         int totalUpserted = 1 + commitDocs.size() + prDocs.size() + reviewCount + issueDocs.size() + branchDocs.size() + contributorDocs.size() + releaseDocs.size() + workflowDocs.size();
 
-        log.debug("synchronization completed for {}", repoFullName);
-        log.debug("inserted document count: {}", totalUpserted); // Using totalUpserted for simplicity in this PoC
+        log.info("Synchronization completed for {} ({} items persisted)", repoFullName, totalUpserted);
         } catch (Exception ex) {
-            log.error("Fatal error in synchronization", ex);
+            log.error("Fatal error in synchronization for {}", repoFullName, ex);
             try {
-                java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync-error.log", true));
-                pw.println("Sync failed for " + repoFullName);
-                ex.printStackTrace(pw);
-                pw.close();
-            } catch (Exception e) {}
+                SyncMetadataDoc current = syncMetadataRepository.findById(repoFullName).orElse(null);
+                if (current != null) {
+                    syncMetadataRepository.save(new SyncMetadataDoc(
+                            repoFullName,
+                            current.owner(),
+                            current.lastSyncTimestamp(),
+                            current.latestSynchronizedCommitSha(),
+                            "FAILED",
+                            current.lastAnalyzedTimestamp()
+                    ));
+                }
+            } catch (Exception ignored) {}
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }

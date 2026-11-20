@@ -102,7 +102,7 @@ public class OrganizationEvidenceService {
         // Count ALL currently open PRs — not filtered by timeframe, since open means open regardless of when last updated
         long activePrCount = prRepository.countByOwnerAndStateIgnoreCase(owner, "open");
 
-        boolean isSyncing = orgSyncManager.isSyncing(owner) || syncMetadataRepository.existsByOwnerAndStatus(owner, "IN_PROGRESS");
+        boolean isSyncing = orgSyncManager.isSyncing(owner);
 
         return new OrganizationEvidence(
                 activeWorkstreams,
