@@ -96,11 +96,11 @@ export function Login() {
             {serverStatus === 'waking' && (
               <div className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 w-full">
                 <div className="flex items-center gap-2 font-medium">
-                  <Clock className="h-4 w-4 animate-spin" />
-                  Waking up cloud server...
+                  <Clock className="h-4 w-4 text-amber-400" />
+                  Cloud backend waking up from sleep
                 </div>
                 <p className="text-[11px] text-text-secondary leading-snug">
-                  Render free-tier sleeps after inactivity (~30-60s to wake). You can still continue now.
+                  Render free-tier hibernates after inactivity. You can click <strong>Continue with GitHub</strong> below at any time.
                 </p>
               </div>
             )}
